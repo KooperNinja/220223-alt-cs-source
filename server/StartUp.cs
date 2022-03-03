@@ -12,7 +12,7 @@ namespace _220223KCore
         public override void OnStart()
         {
             AltStreamers.Init();
-            PlantHandler.LoadAllPlants();
+            PlantHandler.Init();
 
         }
         public override void OnStop()

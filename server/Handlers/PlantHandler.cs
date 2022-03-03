@@ -8,10 +8,11 @@ using AltV.Streamers;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Text;
-using System.Threading.Tasks;
+using System.Timers;
 
 namespace _220223KCore.Handlers
 {
@@ -21,7 +22,7 @@ namespace _220223KCore.Handlers
         public static List<PlantType> PlantTypes_ = new List<PlantType>();
         public static List<PlantTypeModel> PlantTypesModels_ = new List<PlantTypeModel>();
 
-        public static void LoadAllPlants()
+        public static void Init()
         {
             using (var db = new PlantContext())
             {
@@ -41,10 +42,51 @@ namespace _220223KCore.Handlers
                     frozen: true
                     );
                 plant.label = CreatePlantInfo(plant);
-
+                UpdatePlantInfo(plant);
             }
+
+            System.Timers.Timer plantTimer = new System.Timers.Timer(5*60*1000); //Every 5 Minutes
+            plantTimer.Elapsed += PlantTimerElapsed;
+            plantTimer.AutoReset = true;
+            plantTimer.Enabled = true;
         }
 
+        private static void PlantTimerElapsed(object? sender, ElapsedEventArgs e)
+        {
+            foreach (Plant plant in Plants_.Where(x => x.State == (int)PlantStates.GROWING))
+            {
+                PlantType type = GetPlantType(plant.TypeId);
+
+                plant.Water -= 1;
+                plant.Growth += 5;
+
+                if (plant.Water <= 0)
+                {
+                    plant.State = (int)PlantStates.DEAD;
+                    UpdatePlantInfo(plant);
+                    return;
+                }
+                if (plant.Growth >= (type.MaxGrowth*0.5) && plant.Model != type.Models.Model_Med)
+                {
+                    plant.Model = type.Models.Model_Med;
+                }
+                if (plant.Growth >= (type.MaxGrowth * 0.8) && plant.Model != type.Models.Model_Large)
+                {
+                    plant.Model = type.Models.Model_Large;
+                }
+                if (plant.Growth >= type.MaxGrowth)
+                {
+                    plant.State = (int)PlantStates.DONE;
+                    UpdatePlantInfo(plant);
+                    return;
+                }
+                using (var db = new PlantContext())
+                {
+                    db.Update(plant);
+                    db.SaveChanges();
+                }
+            }
+        }
 
         public static void CreateNewPlant(int typeID, Position pos, Vector3 angles)
         {
@@ -54,11 +96,11 @@ namespace _220223KCore.Handlers
                 Alt.Log("Type not valid"); 
                 return;
             }
-            
 
             Plant plant = new Plant
             {
                 TypeId = type.Id,
+                State = (int)PlantStates.GROWING,
                 Model = type.Models.Model_Small,
                 Position = pos,
                 Rotation = angles,
@@ -81,10 +123,34 @@ namespace _220223KCore.Handlers
                 db.SaveChanges();
             }
         }
+        public static void UpdatePlantInfo(Plant plant)
+        {            
+            if (!(plant.State == (int)PlantStates.DEAD || plant.State == (int)PlantStates.DONE))
+            {
+                return;
+            }
+            string labelStr =
+                $" Dev Info \n " +
+                $" {plant.DisplayName} \n" +
+                $" { Enum.GetName(typeof(PlantStates), plant.State)}";
+            plant.label.Text = labelStr;
+
+        }
         public static DynamicTextLabel CreatePlantInfo(Plant plant)
         {
+            PlantType plantType = GetPlantType(plant.TypeId);
+            TextInfo TI = new CultureInfo("en-US", false).TextInfo;
+
+            string name = plantType.Name.ToLower().Replace("_", " ");
+            plant.DisplayName = TI.ToTitleCase(name);
+
             DynamicTextLabel label = TextLabelStreamer.CreateDynamicTextLabel(
-                $" Dev Info \n {plant.Growth}/30",
+                $" Dev Info \n " +
+                $" {plant.DisplayName} \n" +
+                $" Wachstum: \n" +
+                $"{plant.Growth} / {plantType.MaxGrowth}\n" +
+                $" Water: \n" +
+                $"{plant.Water}% / 100%",
                 plant.Position + new Position(0, 0, 1),
                 streamRange: 10
                 );
@@ -118,6 +184,10 @@ namespace _220223KCore.Handlers
             }
             
             return plantType.Id;
+        }
+        public static PlantType GetPlantType(int typeId)
+        {   
+            return PlantTypes_.ToList().FirstOrDefault(x => x.Id == typeId);
         }
 
 
