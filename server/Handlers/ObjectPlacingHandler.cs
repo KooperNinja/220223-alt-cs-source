@@ -63,7 +63,7 @@ namespace _220223KCore.Handlers
                 player.Emit("ObjectPlacing:ValidateFail"); 
                 return;
             }
-            Console.WriteLine("Passed 1");
+     
             PlacingData plData = new PlacingData()
             {
                 active = false, //turning placing mode off
