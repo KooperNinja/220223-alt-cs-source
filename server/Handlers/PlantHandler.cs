@@ -42,6 +42,7 @@ namespace _220223KCore.Handlers
                     frozen: true
                     );
                 plant.label = CreatePlantInfo(plant);
+                UpdatePlantStatus(plant);
                 UpdatePlantInfo(plant);
             }
 
@@ -55,37 +56,41 @@ namespace _220223KCore.Handlers
         {
             foreach (Plant plant in Plants_.Where(x => x.State == (int)PlantStates.GROWING))
             {
-                PlantType type = GetPlantType(plant.TypeId);
-
                 plant.Water -= 1;
                 plant.Growth += 5;
 
-                if (plant.Water <= 0)
-                {
-                    plant.State = (int)PlantStates.DEAD;
-                    UpdatePlantInfo(plant);
-                    return;
-                }
-                if (plant.Growth >= (type.MaxGrowth*0.5) && plant.Model != type.Models.Model_Med)
-                {
-                    plant.Model = type.Models.Model_Med;
-                }
-                if (plant.Growth >= (type.MaxGrowth * 0.8) && plant.Model != type.Models.Model_Large)
-                {
-                    plant.Model = type.Models.Model_Large;
-                }
-                if (plant.Growth >= type.MaxGrowth)
-                {
-                    plant.State = (int)PlantStates.DONE;
-                    UpdatePlantInfo(plant);
-                    return;
-                }
+
+                UpdatePlantStatus(plant);
+
                 using (var db = new PlantContext())
                 {
                     db.Update(plant);
                     db.SaveChanges();
                 }
             }
+        }
+        public static void UpdatePlantStatus(Plant plant)
+        {
+            PlantType type = GetPlantType(plant.TypeId);
+
+            if (plant.Growth >= (type.MaxGrowth * 0.5) && plant.Model != type.Models.Model_Med)
+            {
+                plant.Model = type.Models.Model_Med;
+            }
+            if (plant.Growth >= (type.MaxGrowth * 0.8) && plant.Model != type.Models.Model_Large)
+            {
+                plant.Model = type.Models.Model_Large;
+            }
+            plant.obj.Model = plant.Model;
+            if (plant.Growth >= type.MaxGrowth)
+            {
+                plant.State = (int)PlantStates.DONE;
+            }
+            if (plant.Water <= 0)
+            {
+                plant.State = (int)PlantStates.DEAD;      
+            }
+            UpdatePlantInfo(plant);
         }
 
         public static void CreateNewPlant(int typeID, Position pos, Vector3 angles)
@@ -124,15 +129,24 @@ namespace _220223KCore.Handlers
             }
         }
         public static void UpdatePlantInfo(Plant plant)
-        {            
-            if (!(plant.State == (int)PlantStates.DEAD || plant.State == (int)PlantStates.DONE))
-            {
-                return;
-            }
+        {
+            PlantType plantType = GetPlantType(plant.TypeId);
             string labelStr =
                 $" Dev Info \n " +
                 $" {plant.DisplayName} \n" +
+                $" Wachstum: \n" +
+                $"{plant.Growth} / {plantType.MaxGrowth}\n" +
+                $" Water: \n" +
+                $"{plant.Water}% / 100%";
+
+            if ((plant.State == (int)PlantStates.DEAD || plant.State == (int)PlantStates.DONE))
+            {
+                labelStr =
+                $" Dev Info \n " +
+                $" {plant.DisplayName} \n" +
                 $" { Enum.GetName(typeof(PlantStates), plant.State)}";
+            }
+            
             plant.label.Text = labelStr;
 
         }

@@ -9,7 +9,7 @@ namespace _220223KCore.Models
     public class PlantType
     {
         public int Id { get; set; }
-        public string Name { get; set; } = "Purpel Haze";
+        public string Name { get; set; }
         public PlantTypeModel Models { get; set; }
         public int MaxGrowth { get; set; }
         public int PlantDelay { get; set; }
